@@ -26,6 +26,43 @@ password = os.environ.get('sql_password')
 driver= '{ODBC Driver 18 for SQL Server}'
 
 
+# Update field on specific entity/ row in storage table 
+def update_entity_field(table_name, partition_key, row_key, field_name, new_value):
+    """
+    Updates a specific field of an entity in an Azure Storage Table.
+
+    Parameters:
+    - account_name: str, the name of the Azure Storage account
+    - account_key: str, the key for the Azure Storage account
+    - table_name: str, the name of the table
+    - partition_key: str, the PartitionKey of the entity
+    - row_key: str, the RowKey of the entity
+    - field_name: str, the name of the field to update
+    - new_value: the new value to set for the field
+    """
+    try:
+        # Create a TableServiceClient using the connection string
+        table_service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
+
+        # Get a TableClient
+        table_client = table_service_client.get_table_client(table_name)
+
+        # Retrieve the entity
+        entity = table_client.get_entity(partition_key, row_key)
+
+        # Update the field
+        entity[field_name] = new_value
+
+        # Update the entity in the table
+        table_client.update_entity(entity, mode=UpdateMode.REPLACE)
+        logging.info(f"update_entity_field:Entity updated successfully.")
+
+    except ResourceNotFoundError:
+        logging.info(f"The entity with PartitionKey '{partition_key}' and RowKey '{row_key}' was not found.")
+    except Exception as e:
+        logging.info(f"An error occurred: {e}")
+
+#remove exact duplicates 
 def remove_duplicates(csv_string):
     # Read the CSV string into a list of rows
     input_stream = io.StringIO(csv_string)
@@ -105,3 +142,6 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     logging.info(f"csv content: {content_csv}")
     unique_content_csv = remove_duplicates(content_csv)
     logging.info(f"csv content: {unique_content_csv}")
+    encoded_content_csv = unique_content_csv.replace('\n', '\\n')
+    #update csv after exact duplicate removal
+    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", encoded_content_csv)
