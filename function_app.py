@@ -26,6 +26,40 @@ password = os.environ.get('sql_password')
 driver= '{ODBC Driver 18 for SQL Server}'
 
 
+def remove_duplicates(csv_string):
+    # Read the CSV string into a list of rows
+    input_stream = io.StringIO(csv_string)
+    reader = csv.reader(input_stream)
+    
+    # Get the header
+    header = next(reader)
+    
+    # Use a set to track seen rows
+    seen = set()
+    unique_rows = []
+
+    for row in reader:
+        # Convert row to a tuple to make it hashable
+        row_tuple = tuple(row)
+        if row_tuple not in seen:
+            seen.add(row_tuple)
+            unique_rows.append(row)
+
+    # Write the unique rows back to a CSV string
+    output_stream = io.StringIO()
+    writer = csv.writer(output_stream)
+    
+    # Write the header
+    writer.writerow(header)
+    
+    # Write the unique rows
+    writer.writerows(unique_rows)
+
+    # Get the CSV string from the output stream
+    output_stream.seek(0)
+    return output_stream.getvalue()
+
+
 def get_content_Csv(table_name, partition_key, row_key):
     """
     Retrieve the 'contentAnalysisCsv' field from the specified Azure Storage Table.
@@ -47,7 +81,7 @@ def get_content_Csv(table_name, partition_key, row_key):
         entity = table_client.get_entity(partition_key=partition_key, row_key=row_key)
 
         # Return the value of 'contentAnalysisCsv' field
-        encoded_content_csv = entity.get('contentAnalysisCsv')
+        encoded_content_csv = entity.get('contentCsv')
         retrieved_csv = encoded_content_csv.replace('\\n', '\n') 
         return retrieved_csv
     except Exception as e:
@@ -69,3 +103,5 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     logging.info(f"event data:caseid:{caseid},clinicArea:{clinicArea},sourceTable:{sourceTable}")
     content_csv = get_content_Csv(sourceTable, caseid, clinicArea)
     logging.info(f"csv content: {content_csv}")
+    unique_content_csv = remove_duplicates(content_csv)
+    logging.info(f"csv content: {unique_content_csv}")
