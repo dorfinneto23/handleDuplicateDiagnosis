@@ -25,6 +25,36 @@ username = os.environ.get('sql_username')
 password = os.environ.get('sql_password')
 driver= '{ODBC Driver 18 for SQL Server}'
 
+
+def get_content_Csv(table_name, partition_key, row_key):
+    """
+    Retrieve the 'contentAnalysisCsv' field from the specified Azure Storage Table.
+
+    :param table_name: Name of the table.
+    :param partition_key: PartitionKey of the entity.
+    :param row_key: RowKey of the entity.
+    :param connection_string: Connection string for the Azure Storage account.
+    :return: The value of the 'contentAnalysisCsv' field or None if not found.
+    """
+    try:
+        # Create a TableServiceClient using the connection string
+        service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
+
+        # Get a TableClient for the specified table
+        table_client = service_client.get_table_client(table_name=table_name)
+
+        # Retrieve the entity using PartitionKey and RowKey
+        entity = table_client.get_entity(partition_key=partition_key, row_key=row_key)
+
+        # Return the value of 'contentAnalysisCsv' field
+        encoded_content_csv = entity.get('contentAnalysisCsv')
+        retrieved_csv = encoded_content_csv.replace('\\n', '\n') 
+        return retrieved_csv
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
 app = func.FunctionApp()
 
 @app.service_bus_queue_trigger(arg_name="azservicebus", queue_name="handleduplicatediagnosis",
@@ -37,3 +67,5 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     clinicArea = message_data_dict['clinicArea']
     sourceTable = message_data_dict['sourceTable']
     logging.info(f"event data:caseid:{caseid},clinicArea:{clinicArea},sourceTable:{sourceTable}")
+    content_csv = get_content_Csv(sourceTable, caseid, clinicArea)
+    logging.info(f"csv content: {content_csv}")
