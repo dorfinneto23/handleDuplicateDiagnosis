@@ -10,6 +10,9 @@ from openai import AzureOpenAI #for using openai services
 from azure.data.tables import TableServiceClient, TableClient, UpdateMode # in order to use azure storage table  
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError # in order to use azure storage table  exceptions 
 import csv #helping convert json to csv
+from io import StringIO  # in order for merge_csv_rows_by_diagnosis function 
+from collections import defaultdict # in order for merge_csv_rows_by_diagnosis function 
+
 
 
 # Azure Blob Storage connection string
@@ -25,6 +28,48 @@ username = os.environ.get('sql_username')
 password = os.environ.get('sql_password')
 driver= '{ODBC Driver 18 for SQL Server}'
 
+
+
+def merge_csv_rows_by_diagnosis(csv_string):
+    # Read the input CSV string
+    input_csv = StringIO(csv_string)
+    reader = csv.DictReader(input_csv)
+
+    # Dictionary to store merged rows by diagnosis
+    merged_data = defaultdict(lambda: {
+        'diagnosis': '',
+        'dateofdiagnosis': '',
+        'levelstageseverity': '',
+        'treatment': ''
+    })
+
+    # Process each row and merge data
+    for row in reader:
+        diagnosis = row['diagnosis']
+        merged_row = merged_data[diagnosis]
+
+        # Merge the fields
+        if not merged_row['diagnosis']:
+            merged_row['diagnosis'] = diagnosis
+
+        for field in ['dateofdiagnosis', 'levelstageseverity', 'treatment']:
+            current_value = merged_row[field]
+            new_value = row[field]
+            if current_value:
+                merged_row[field] = f"{current_value}\n{field} {len(current_value.splitlines()) + 1} - {new_value}"
+            else:
+                merged_row[field] = f"{field} 1 - {new_value}"
+
+    # Prepare output CSV
+    output_csv = StringIO()
+    fieldnames = ['diagnosis', 'dateofdiagnosis', 'levelstageseverity', 'treatment']
+    writer = csv.DictWriter(output_csv, fieldnames=fieldnames)
+    writer.writeheader()
+    for merged_row in merged_data.values():
+        writer.writerow(merged_row)
+
+    # Return the merged CSV string
+    return output_csv.getvalue()
 
 # Update field on specific entity/ row in storage table 
 def update_entity_field(table_name, partition_key, row_key, field_name, new_value):
@@ -145,3 +190,7 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     encoded_content_csv = unique_content_csv.replace('\n', '\\n')
     #update csv after exact duplicate removal
     update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", encoded_content_csv)
+    #mege csv content by diagnosis
+    merged_csv = merge_csv_rows_by_diagnosis(unique_content_csv)
+    encoded_merged_csv = merged_csv.replace('\n', '\\n')
+    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvConsolidation", encoded_merged_csv)
