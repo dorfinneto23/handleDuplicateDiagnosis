@@ -56,9 +56,11 @@ def merge_csv_rows_by_diagnosis(csv_string):
             current_value = merged_row[field]
             new_value = row[field]
             if current_value:
-                merged_row[field] = f"{current_value},{field} {len(current_value.splitlines()) + 1} - {new_value}"
+                #merged_row[field] = f"{current_value},{field} {len(current_value.splitlines()) + 1} - {new_value}"
+                merged_row[field] = f"{current_value},{new_value}"
             else:
-                merged_row[field] = f"{field} 1 - {new_value}"
+                #merged_row[field] = f"{field} 1 - {new_value}"
+                merged_row[field] = f"{new_value}"
 
     # Prepare output CSV
     output_csv = StringIO()
