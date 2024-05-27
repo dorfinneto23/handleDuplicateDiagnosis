@@ -30,6 +30,27 @@ driver= '{ODBC Driver 18 for SQL Server}'
 
 
 
+ #Create event on azure service bus 
+def create_servicebus_event(queue_name, event_data):
+    try:
+        # Create a ServiceBusClient using the connection string
+        servicebus_client = ServiceBusClient.from_connection_string(connection_string_servicebus)
+
+        # Create a sender for the queue
+        sender = servicebus_client.get_queue_sender(queue_name)
+
+        with sender:
+            # Create a ServiceBusMessage object with the event data
+            message = ServiceBusMessage(event_data)
+
+            # Send the message to the queue
+            sender.send_messages(message)
+
+        print("Event created successfully.")
+    
+    except Exception as e:
+        print("An error occurred:", str(e))
+
 def merge_csv_rows_by_diagnosis(csv_string):
     # Read the input CSV string
     input_csv = StringIO(csv_string)
@@ -196,3 +217,11 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     merged_csv = merge_csv_rows_by_diagnosis(unique_content_csv)
     encoded_merged_csv = merged_csv.replace('\n', '\\n')
     update_entity_field(sourceTable, caseid, clinicArea, "contentCsvConsolidation", encoded_merged_csv)
+    #preparing data for service bus
+    data = { 
+                "clinicArea" : clinicArea, 
+                "storageTable" :sourceTable,
+                "caseid" :caseid
+            } 
+    json_data = json.dumps(data)
+    create_servicebus_event("niimatchingrules",json_data)
