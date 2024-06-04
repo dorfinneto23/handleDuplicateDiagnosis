@@ -61,7 +61,8 @@ def merge_csv_rows_by_diagnosis(csv_string):
         'diagnosis': '',
         'dateofdiagnosis': '',
         'levelstageseverity': '',
-        'treatment': ''
+        'treatment': '',
+        'page_number': ''
     })
 
     # Process each row and merge data
@@ -73,7 +74,7 @@ def merge_csv_rows_by_diagnosis(csv_string):
         if not merged_row['diagnosis']:
             merged_row['diagnosis'] = diagnosis
 
-        for field in ['dateofdiagnosis', 'levelstageseverity', 'treatment']:
+        for field in ['dateofdiagnosis', 'levelstageseverity', 'treatment', 'page_number']:
             current_value = merged_row[field]
             new_value = row[field]
             if current_value:
@@ -85,7 +86,7 @@ def merge_csv_rows_by_diagnosis(csv_string):
 
     # Prepare output CSV
     output_csv = StringIO()
-    fieldnames = ['diagnosis', 'dateofdiagnosis', 'levelstageseverity', 'treatment']
+    fieldnames = ['diagnosis', 'dateofdiagnosis', 'levelstageseverity', 'treatment','page_number']
     writer = csv.DictWriter(output_csv, fieldnames=fieldnames)
     writer.writeheader()
     for merged_row in merged_data.values():
