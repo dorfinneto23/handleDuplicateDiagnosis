@@ -97,18 +97,7 @@ def merge_csv_rows_by_diagnosis(csv_string):
 
 # Update field on specific entity/ row in storage table 
 def update_entity_field(table_name, partition_key, row_key, field_name, new_value):
-    """
-    Updates a specific field of an entity in an Azure Storage Table.
 
-    Parameters:
-    - account_name: str, the name of the Azure Storage account
-    - account_key: str, the key for the Azure Storage account
-    - table_name: str, the name of the table
-    - partition_key: str, the PartitionKey of the entity
-    - row_key: str, the RowKey of the entity
-    - field_name: str, the name of the field to update
-    - new_value: the new value to set for the field
-    """
     try:
         # Create a TableServiceClient using the connection string
         table_service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
@@ -167,15 +156,7 @@ def remove_duplicates(csv_string):
 
 
 def get_content_Csv(table_name, partition_key, row_key):
-    """
-    Retrieve the 'contentAnalysisCsv' field from the specified Azure Storage Table.
 
-    :param table_name: Name of the table.
-    :param partition_key: PartitionKey of the entity.
-    :param row_key: RowKey of the entity.
-    :param connection_string: Connection string for the Azure Storage account.
-    :return: The value of the 'contentAnalysisCsv' field or None if not found.
-    """
     try:
         # Create a TableServiceClient using the connection string
         service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
