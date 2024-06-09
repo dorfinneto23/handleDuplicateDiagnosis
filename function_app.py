@@ -40,7 +40,7 @@ def save_contentCsvConsolidation(content,caseid,filename):
         blob_service_client = BlobServiceClient.from_connection_string(connection_string_blob)
         container_client = blob_service_client.get_container_client(container_name)
         basicPath = f"{main_folder_name}/{folder_name}"
-        destinationPath = f"{basicPath}/ContentByClinicAreas/contentCsvConsolidation/contentCsvNoDuplicates/{filename}"
+        destinationPath = f"{basicPath}/ContentByClinicAreas/contentCsvConsolidation/{filename}"
         # Upload the blob and overwrite if it already exists
         blob_client = container_client.upload_blob(name=destinationPath, data=content, overwrite=True)
         logging.info(f"the ContentByClinicAreas content file url is: {blob_client.url}")
@@ -251,7 +251,7 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     logging.info(f"csv content: {unique_content_csv}")
     encoded_content_csv = unique_content_csv.replace('\n', '\\n')
     #update csv after exact duplicate removal
-    filename = f"{clinicArea}+.txt"
+    filename = f"{clinicArea}.txt"
     contentCsvNoDuplicates_path = save_contentCsvNoDuplicates(encoded_content_csv,caseid,filename)
     update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", contentCsvNoDuplicates_path)
     #mege csv content by diagnosis
