@@ -30,6 +30,44 @@ driver= '{ODBC Driver 18 for SQL Server}'
 
 
 
+#save contentCsvConsolidation content 
+def save_contentCsvConsolidation(content,caseid,filename):
+    try:
+        logging.info(f"save_ContentByClinicAreas start, content: {content},caseid: {caseid},filename: {filename}")
+        container_name = "medicalanalysis"
+        main_folder_name = "cases"
+        folder_name="case-"+caseid
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string_blob)
+        container_client = blob_service_client.get_container_client(container_name)
+        basicPath = f"{main_folder_name}/{folder_name}"
+        destinationPath = f"{basicPath}/ContentByClinicAreas/contentCsvConsolidation/contentCsvNoDuplicates/{filename}"
+        # Upload the blob and overwrite if it already exists
+        blob_client = container_client.upload_blob(name=destinationPath, data=content, overwrite=True)
+        logging.info(f"the ContentByClinicAreas content file url is: {blob_client.url}")
+        return destinationPath
+    
+    except Exception as e:
+        print("An error occurred:", str(e))
+
+#save contentCsvNoDuplicates content 
+def save_contentCsvNoDuplicates(content,caseid,filename):
+    try:
+        logging.info(f"save_ContentByClinicAreas start, content: {content},caseid: {caseid},filename: {filename}")
+        container_name = "medicalanalysis"
+        main_folder_name = "cases"
+        folder_name="case-"+caseid
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string_blob)
+        container_client = blob_service_client.get_container_client(container_name)
+        basicPath = f"{main_folder_name}/{folder_name}"
+        destinationPath = f"{basicPath}/ContentByClinicAreas/contentCsvNoDuplicates/{filename}"
+        # Upload the blob and overwrite if it already exists
+        blob_client = container_client.upload_blob(name=destinationPath, data=content, overwrite=True)
+        logging.info(f"the ContentByClinicAreas content file url is: {blob_client.url}")
+        return destinationPath
+    
+    except Exception as e:
+        print("An error occurred:", str(e))
+
  #Create event on azure service bus 
 def create_servicebus_event(queue_name, event_data):
     try:
@@ -213,11 +251,14 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     logging.info(f"csv content: {unique_content_csv}")
     encoded_content_csv = unique_content_csv.replace('\n', '\\n')
     #update csv after exact duplicate removal
-    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", encoded_content_csv)
+    filename = f"{clinicArea}+.txt"
+    contentCsvNoDuplicates_path = save_contentCsvNoDuplicates(encoded_content_csv,caseid,filename)
+    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", contentCsvNoDuplicates_path)
     #mege csv content by diagnosis
     merged_csv = merge_csv_rows_by_diagnosis(unique_content_csv)
     encoded_merged_csv = merged_csv.replace('\n', '\\n')
-    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvConsolidation", encoded_merged_csv)
+    contentCsvConsolidation_path = save_contentCsvConsolidation(encoded_merged_csv,caseid,filename)
+    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvConsolidation", contentCsvConsolidation_path)
     #preparing data for service bus
     data = { 
                 "clinicArea" : clinicArea, 
