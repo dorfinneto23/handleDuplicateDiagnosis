@@ -154,8 +154,26 @@ def remove_duplicates(csv_string):
     output_stream.seek(0)
     return output_stream.getvalue()
 
+# get content csv from azure storage 
+def get_contentcsv_from_storage(path):
+    try:
+        logging.info(f"get_contentcsv function strating, path value: {path}")
+        container_name = "medicalanalysis"
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string_blob)
+        container_client = blob_service_client.get_container_client(container_name)
+        blob_client = container_client.get_blob_client(path)
+        download_stream = blob_client.download_blob()
+        filecontent  = download_stream.read().decode('utf-8')
+        logging.info(f"get_contentcsv: data from the txt file is {filecontent}")
+        #encoded_content_csv = entity.get('contentCsv')
+        retrieved_csv = filecontent.replace('\\n', '\n') 
+        return retrieved_csv
+    except Exception as e:
+        logging.error(f"get_contentcsv: Error update case: {str(e)}")
+        return None    
 
-def get_content_Csv(table_name, partition_key, row_key):
+
+def get_content_Csv_path(table_name, partition_key, row_key):
 
     try:
         # Create a TableServiceClient using the connection string
@@ -168,9 +186,9 @@ def get_content_Csv(table_name, partition_key, row_key):
         entity = table_client.get_entity(partition_key=partition_key, row_key=row_key)
 
         # Return the value of 'contentAnalysisCsv' field
-        encoded_content_csv = entity.get('contentCsv')
-        retrieved_csv = encoded_content_csv.replace('\\n', '\n') 
-        return retrieved_csv
+        content_path= entity.get('contentCsv')
+        #retrieved_csv = encoded_content_csv.replace('\\n', '\n') 
+        return content_path
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
@@ -188,8 +206,9 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     clinicArea = message_data_dict['clinicArea']
     sourceTable = message_data_dict['sourceTable']
     logging.info(f"event data:caseid:{caseid},clinicArea:{clinicArea},sourceTable:{sourceTable}")
-    content_csv = get_content_Csv(sourceTable, caseid, clinicArea)
-    logging.info(f"csv content: {content_csv}")
+    content_csv_path = get_content_Csv_path(sourceTable, caseid, clinicArea)
+    logging.info(f"csv content path: {content_csv_path}")
+    content_csv = get_contentcsv_from_storage(content_csv_path)
     unique_content_csv = remove_duplicates(content_csv)
     logging.info(f"csv content: {unique_content_csv}")
     encoded_content_csv = unique_content_csv.replace('\n', '\\n')
