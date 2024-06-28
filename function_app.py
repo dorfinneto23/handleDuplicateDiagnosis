@@ -47,10 +47,10 @@ def replace_diagnosis_with_valid(csv_content):
         # Replace diagnosis values in the CSV DataFrame if they exist in the diagnosis_map
         csv_df['diagnosis'] = csv_df['diagnosis'].apply(log_replacement)
 
-        return csv_df
+        return csv_df.to_csv(index=False)
  
  except Exception as e:
-        logging.info(f"replace_diagnosis_with_valil error: {str(e)}")
+        logging.error(f"replace_diagnosis_with_valil error: {str(e)}")
 
 #take diagnosis replacment values from diagnosis dictorionary table 
 def get_values_from_diagnosisDictionary_table():
@@ -67,7 +67,7 @@ def get_values_from_diagnosisDictionary_table():
     
     return df
  except Exception as e:
-        logging.info(f"get_values_from_diagnosisDictionary_table error: {str(e)}")
+        logging.error(f"get_values_from_diagnosisDictionary_table error: {str(e)}")
 
 #save contentCsvConsolidation content 
 def save_contentCsvConsolidation(content,caseid,filename):
@@ -86,7 +86,7 @@ def save_contentCsvConsolidation(content,caseid,filename):
         return destinationPath
     
     except Exception as e:
-        print("An error occurred:", str(e))
+        logging.error(f"save_contentCsvConsolidation error: {str(e)}")
 
 #save contentCsvNoDuplicates content 
 def save_contentCsvNoDuplicates(content,caseid,filename):
@@ -105,7 +105,8 @@ def save_contentCsvNoDuplicates(content,caseid,filename):
         return destinationPath
     
     except Exception as e:
-        print("An error occurred:", str(e))
+        logging.error(f"save_contentCsvNoDuplicates error: {str(e)}")
+
 
  #Create event on azure service bus 
 def create_servicebus_event(queue_name, event_data):
@@ -126,9 +127,10 @@ def create_servicebus_event(queue_name, event_data):
         print("Event created successfully.")
     
     except Exception as e:
-        print("An error occurred:", str(e))
+        logging.error(f"create_servicebus_event error: {str(e)}")
 
 def merge_csv_rows_by_diagnosis(csv_string):
+ try:
     # Read the input CSV string
     input_csv = StringIO(csv_string)
     reader = csv.DictReader(input_csv)
@@ -171,6 +173,8 @@ def merge_csv_rows_by_diagnosis(csv_string):
 
     # Return the merged CSV string
     return output_csv.getvalue()
+ except Exception as e:
+        logging.error(f"merge_csv_rows_by_diagnosis error: {str(e)}")
 
 # Update field on specific entity/ row in storage table 
 def update_entity_field(table_name, partition_key, row_key, field_name, new_value):
