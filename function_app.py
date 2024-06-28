@@ -64,6 +64,8 @@ def get_values_from_diagnosisDictionary_table():
     
     # Filter out rows where validDiagnosis is 'na'
     df = df[df['validDiagnosis'].str.lower() != 'na']
+    # Filter out rows where PartitionKey is equal to validDiagnosis
+    df = df[df['PartitionKey'] != df['validDiagnosis']]
     
     return df
  except Exception as e:
