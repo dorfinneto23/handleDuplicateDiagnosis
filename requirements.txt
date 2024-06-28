@@ -7,3 +7,4 @@ azure.storage.blob
 azure.servicebus
 openai
 azure.data.tables
+pandas

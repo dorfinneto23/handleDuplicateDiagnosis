@@ -11,6 +11,7 @@ from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError # i
 import csv #helping convert json to csv
 from io import StringIO  # in order for merge_csv_rows_by_diagnosis function 
 from collections import defaultdict # in order for merge_csv_rows_by_diagnosis function 
+import pandas as pd # in order to get data form storage table 
 
 
 
@@ -19,6 +20,53 @@ connection_string_blob = os.environ.get('BlobStorageConnString')
 
 #Azure service bus connection string 
 connection_string_servicebus = os.environ.get('servicebusConnectionString')
+
+
+
+
+
+###replace diagnosis values with valid diagnosis 
+def replace_diagnosis_with_valid(csv_content):
+
+    #take diagnosis replacment values from diagnosis dictorionary table 
+    table = get_values_from_diagnosisDictionary_table()
+
+    # Read the CSV content into a DataFrame
+    csv_df = pd.read_csv(StringIO(csv_content))
+
+    # Extract necessary columns from the table
+    partition_keys = table[['partionkey', 'validDiagnosis']]
+
+    # Create a dictionary for quick lookup of valid diagnoses
+    diagnosis_map = dict(zip(partition_keys['partionkey'], partition_keys['validDiagnosis']))
+
+    # Log for each replacement
+    def log_replacement(diagnosis):
+        if diagnosis in diagnosis_map:  # Check if the diagnosis exists in the diagnosis_map
+            logging.info(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}'")
+            return diagnosis_map[diagnosis]  # Replace with validDiagnosis
+        return diagnosis  # If no match, return the original diagnosis
+
+    # Replace diagnosis values in the CSV DataFrame if they exist in the diagnosis_map
+    csv_df['diagnosis'] = csv_df['diagnosis'].apply(log_replacement)
+
+    return csv_df
+
+
+
+#take diagnosis replacment values from diagnosis dictorionary table 
+def get_values_from_diagnosisDictionary_table():
+    table_name = "diagnosisDictionary"
+    table_service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
+    table_client = table_service_client.get_table_client(table_name)
+    entities = table_client.list_entities()
+    data = [{'partionkey': entity['partionkey'], 'validDiagnosis': entity['validDiagnosis']} for entity in entities]
+    df = pd.DataFrame(data)
+    
+    # Filter out rows where validDiagnosis is 'na'
+    df = df[df['validDiagnosis'].str.lower() != 'na']
+    
+    return df
 
 
 #save contentCsvConsolidation content 
@@ -238,7 +286,8 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     content_csv_path = get_content_Csv_path(sourceTable, caseid, clinicArea)
     logging.info(f"csv content path: {content_csv_path}")
     content_csv = get_contentcsv_from_storage(content_csv_path)
-    unique_content_csv = remove_duplicates(content_csv)
+    content_csv_valid_diagnosis = replace_diagnosis_with_valid(content_csv)
+    unique_content_csv = remove_duplicates(content_csv_valid_diagnosis)
     logging.info(f"csv content: {unique_content_csv}")
     encoded_content_csv = unique_content_csv.replace('\n', '\\n')
     #update csv after exact duplicate removal
