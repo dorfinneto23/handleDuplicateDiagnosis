@@ -22,52 +22,52 @@ connection_string_blob = os.environ.get('BlobStorageConnString')
 connection_string_servicebus = os.environ.get('servicebusConnectionString')
 
 
-
-
-
 ###replace diagnosis values with valid diagnosis 
 def replace_diagnosis_with_valid(csv_content):
+ try:
+        #take diagnosis replacment values from diagnosis dictorionary table 
+        table = get_values_from_diagnosisDictionary_table()
 
-    #take diagnosis replacment values from diagnosis dictorionary table 
-    table = get_values_from_diagnosisDictionary_table()
+        # Read the CSV content into a DataFrame
+        csv_df = pd.read_csv(StringIO(csv_content))
 
-    # Read the CSV content into a DataFrame
-    csv_df = pd.read_csv(StringIO(csv_content))
+        # Extract necessary columns from the table
+        partition_keys = table[['PartitionKey', 'validDiagnosis']]
 
-    # Extract necessary columns from the table
-    partition_keys = table[['partionkey', 'validDiagnosis']]
+        # Create a dictionary for quick lookup of valid diagnoses
+        diagnosis_map = dict(zip(partition_keys['PartitionKey'], partition_keys['validDiagnosis']))
 
-    # Create a dictionary for quick lookup of valid diagnoses
-    diagnosis_map = dict(zip(partition_keys['partionkey'], partition_keys['validDiagnosis']))
+        # Log for each replacement
+        def log_replacement(diagnosis):
+            if diagnosis in diagnosis_map:  # Check if the diagnosis exists in the diagnosis_map
+                logging.info(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}'")
+                return diagnosis_map[diagnosis]  # Replace with validDiagnosis
+            return diagnosis  # If no match, return the original diagnosis
 
-    # Log for each replacement
-    def log_replacement(diagnosis):
-        if diagnosis in diagnosis_map:  # Check if the diagnosis exists in the diagnosis_map
-            logging.info(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}'")
-            return diagnosis_map[diagnosis]  # Replace with validDiagnosis
-        return diagnosis  # If no match, return the original diagnosis
+        # Replace diagnosis values in the CSV DataFrame if they exist in the diagnosis_map
+        csv_df['diagnosis'] = csv_df['diagnosis'].apply(log_replacement)
 
-    # Replace diagnosis values in the CSV DataFrame if they exist in the diagnosis_map
-    csv_df['diagnosis'] = csv_df['diagnosis'].apply(log_replacement)
-
-    return csv_df
-
-
+        return csv_df
+ 
+ except Exception as e:
+        logging.info(f"replace_diagnosis_with_valil error: {str(e)}")
 
 #take diagnosis replacment values from diagnosis dictorionary table 
 def get_values_from_diagnosisDictionary_table():
+ try:
     table_name = "diagnosisDictionary"
     table_service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
     table_client = table_service_client.get_table_client(table_name)
     entities = table_client.list_entities()
-    data = [{'partionkey': entity['partionkey'], 'validDiagnosis': entity['validDiagnosis']} for entity in entities]
+    data = [{'PartitionKey': entity['PartitionKey'], 'validDiagnosis': entity['validDiagnosis']} for entity in entities]
     df = pd.DataFrame(data)
     
     # Filter out rows where validDiagnosis is 'na'
     df = df[df['validDiagnosis'].str.lower() != 'na']
     
     return df
-
+ except Exception as e:
+        logging.info(f"get_values_from_diagnosisDictionary_table error: {str(e)}")
 
 #save contentCsvConsolidation content 
 def save_contentCsvConsolidation(content,caseid,filename):
