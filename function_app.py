@@ -42,7 +42,7 @@ def create_log_to_table(message,title,caseid,subFunctionName):
 
 
 ###replace diagnosis values with valid diagnosis 
-def replace_diagnosis_with_valid(csv_content,caseid):
+def replace_diagnosis_with_valid(csv_content,caseid,clinicArea):
  try:
         #take diagnosis replacment values from diagnosis dictorionary table 
         table = get_values_from_diagnosisDictionary_table()
@@ -59,8 +59,8 @@ def replace_diagnosis_with_valid(csv_content,caseid):
         # Log for each replacement
         def log_replacement(diagnosis):
             if diagnosis in diagnosis_map:  # Check if the diagnosis exists in the diagnosis_map
-                logging.info(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}'")
-                create_log_to_table(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}'","Replacing diagnosis",caseid,"replace_diagnosis_with_valid")
+                logging.info(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}' on clinic area: {clinicArea}")
+                create_log_to_table(f"Replacing diagnosis '{diagnosis}' with '{diagnosis_map[diagnosis]}' on clinic area: {clinicArea}","Replacing diagnosis",caseid,"replace_diagnosis_with_valid")
                 return diagnosis_map[diagnosis]  # Replace with validDiagnosis
             return diagnosis  # If no match, return the original diagnosis
 
@@ -312,7 +312,7 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     content_csv_path = get_content_Csv_path(sourceTable, caseid, clinicArea)
     logging.info(f"csv content path: {content_csv_path}")
     content_csv = get_contentcsv_from_storage(content_csv_path)
-    content_csv_valid_diagnosis = replace_diagnosis_with_valid(content_csv,caseid)
+    content_csv_valid_diagnosis = replace_diagnosis_with_valid(content_csv,caseid,clinicArea)
     unique_content_csv = remove_duplicates(content_csv_valid_diagnosis)
     logging.info(f"csv content: {unique_content_csv}")
     encoded_content_csv = unique_content_csv.replace('\n', '\\n')
