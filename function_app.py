@@ -24,6 +24,7 @@ connection_string_servicebus = os.environ.get('servicebusConnectionString')
 ##create log into the log table 
 def create_log_to_table(message,title,caseid,subFunctionName):
  try:
+    logging.info(f"create_log_to_table start")
     serviceName = 'handleDuplicateDiagnosis'
         #preparing data for service bus
     data = { 
@@ -35,6 +36,7 @@ def create_log_to_table(message,title,caseid,subFunctionName):
             } 
     json_data = json.dumps(data)
     create_servicebus_event("logs-management",json_data)
+    logging.info(f"create_log_to_table success")
  
  except Exception as e:
         logging.error(f"create_log_to_table error: {str(e)}")
