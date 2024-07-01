@@ -154,51 +154,56 @@ def create_servicebus_event(queue_name, event_data):
         logging.error(f"create_servicebus_event error: {str(e)}")
 
 def merge_csv_rows_by_diagnosis(csv_string):
- try:
-    # Read the input CSV string
-    input_csv = StringIO(csv_string)
-    reader = csv.DictReader(input_csv)
+     try:
+        # Read the input CSV string
+        input_csv = StringIO(csv_string)
+        reader = csv.DictReader(input_csv)
 
-    # Dictionary to store merged rows by diagnosis
-    merged_data = defaultdict(lambda: {
-        'diagnosis': '',
-        'dateofdiagnosis': '',
-        'levelstageseverity': '',
-        'treatment': '',
-        'page_number': ''
-    })
+        # Dictionary to store merged rows by diagnosis
+        merged_data = defaultdict(lambda: {
+            'diagnosis': '',
+            'dateofdiagnosis': '',
+            'levelstageseverity': '',
+            'treatment': '',
+            'page_number': set()  # Use a set to avoid duplicates
+        })
 
-    # Process each row and merge data
-    for row in reader:
-        diagnosis = row['diagnosis']
-        merged_row = merged_data[diagnosis]
+        # Process each row and merge data
+        for row in reader:
+            diagnosis = row['diagnosis']
+            merged_row = merged_data[diagnosis]
 
-        # Merge the fields
-        if not merged_row['diagnosis']:
-            merged_row['diagnosis'] = diagnosis
+            # Merge the fields
+            if not merged_row['diagnosis']:
+                merged_row['diagnosis'] = diagnosis
 
-        for field in ['dateofdiagnosis', 'levelstageseverity', 'treatment', 'page_number']:
-            current_value = merged_row[field]
-            new_value = row[field]
-            if current_value:
-                #merged_row[field] = f"{current_value},{field} {len(current_value.splitlines()) + 1} - {new_value}"
-                merged_row[field] = f"{current_value},{new_value}"
-            else:
-                #merged_row[field] = f"{field} 1 - {new_value}"
-                merged_row[field] = f"{new_value}"
+            for field in ['dateofdiagnosis', 'levelstageseverity', 'treatment']:
+                current_value = merged_row[field]
+                new_value = row[field]
+                if current_value:
+                    merged_row[field] = f"{current_value},{new_value}"
+                else:
+                    merged_row[field] = new_value
 
-    # Prepare output CSV
-    output_csv = StringIO()
-    fieldnames = ['diagnosis', 'dateofdiagnosis', 'levelstageseverity', 'treatment','page_number']
-    writer = csv.DictWriter(output_csv, fieldnames=fieldnames)
-    writer.writeheader()
-    for merged_row in merged_data.values():
-        writer.writerow(merged_row)
+            # Merge page_number field and avoid duplicates
+            new_page_number = row['page_number']
+            if new_page_number:
+                merged_row['page_number'].add(new_page_number)
 
-    # Return the merged CSV string
-    return output_csv.getvalue()
- except Exception as e:
-        logging.error(f"merge_csv_rows_by_diagnosis error: {str(e)}")
+        # Prepare output CSV
+        output_csv = StringIO()
+        fieldnames = ['diagnosis', 'dateofdiagnosis', 'levelstageseverity', 'treatment', 'page_number']
+        writer = csv.DictWriter(output_csv, fieldnames=fieldnames)
+        writer.writeheader()
+        for merged_row in merged_data.values():
+            # Convert the set of page numbers back to a comma-separated string
+            merged_row['page_number'] = ','.join(sorted(merged_row['page_number']))
+            writer.writerow(merged_row)
+
+        # Return the merged CSV string
+        return output_csv.getvalue()
+     except Exception as e:
+           logging.error(f"merge_csv_rows_by_diagnosis error: {str(e)}")
 
 # Update field on specific entity/ row in storage table 
 def update_entity_field(table_name, partition_key, row_key, field_name, new_value):
