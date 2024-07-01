@@ -21,6 +21,29 @@ connection_string_blob = os.environ.get('BlobStorageConnString')
 #Azure service bus connection string 
 connection_string_servicebus = os.environ.get('servicebusConnectionString')
 
+
+
+##check clinic area status 
+def get_ClincArea_status(table_name, partition_key, row_key):
+
+    try:
+        # Create a TableServiceClient using the connection string
+        service_client = TableServiceClient.from_connection_string(conn_str=connection_string_blob)
+
+        # Get a TableClient for the specified table
+        table_client = service_client.get_table_client(table_name=table_name)
+
+        # Retrieve the entity using PartitionKey and RowKey
+        entity = table_client.get_entity(partition_key=partition_key, row_key=row_key)
+
+        # Return the value of 'contentAnalysisCsv' field
+        status = entity.get('status')
+        return status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
 ##create log into the log table 
 def create_log_to_table(message,title,caseid,subFunctionName):
  try:
@@ -206,7 +229,7 @@ def merge_csv_rows_by_diagnosis(csv_string):
            logging.error(f"merge_csv_rows_by_diagnosis error: {str(e)}")
 
 # Update field on specific entity/ row in storage table 
-def update_entity_field(table_name, partition_key, row_key, field_name, new_value):
+def update_entity_field(table_name, partition_key, row_key, field_name, new_value,field_name2, new_value2):
 
     try:
         # Create a TableServiceClient using the connection string
@@ -220,6 +243,7 @@ def update_entity_field(table_name, partition_key, row_key, field_name, new_valu
 
         # Update the field
         entity[field_name] = new_value
+        entity[field_name2] = new_value2
 
         # Update the entity in the table
         table_client.update_entity(entity, mode=UpdateMode.REPLACE)
@@ -315,28 +339,33 @@ def handleDuplicateDiagnosis(azservicebus: func.ServiceBusMessage):
     caseid = message_data_dict['caseid']
     clinicArea = message_data_dict['clinicArea']
     sourceTable = message_data_dict['sourceTable']
-    logging.info(f"event data:caseid:{caseid},clinicArea:{clinicArea},sourceTable:{sourceTable}")
-    content_csv_path = get_content_Csv_path(sourceTable, caseid, clinicArea)
-    logging.info(f"csv content path: {content_csv_path}")
-    content_csv = get_contentcsv_from_storage(content_csv_path)
-    content_csv_valid_diagnosis = replace_diagnosis_with_valid(content_csv,caseid,clinicArea)
-    unique_content_csv = remove_duplicates(content_csv_valid_diagnosis)
-    logging.info(f"csv content: {unique_content_csv}")
-    encoded_content_csv = unique_content_csv.replace('\n', '\\n')
-    #update csv after exact duplicate removal
-    filename = f"{clinicArea}.txt"
-    contentCsvNoDuplicates_path = save_contentCsvNoDuplicates(encoded_content_csv,caseid,filename)
-    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", contentCsvNoDuplicates_path)
-    #mege csv content by diagnosis
-    merged_csv = merge_csv_rows_by_diagnosis(unique_content_csv)
-    encoded_merged_csv = merged_csv.replace('\n', '\\n')
-    contentCsvConsolidation_path = save_contentCsvConsolidation(encoded_merged_csv,caseid,filename)
-    update_entity_field(sourceTable, caseid, clinicArea, "contentCsvConsolidation", contentCsvConsolidation_path)
-    #preparing data for service bus
-    data = { 
-                "clinicArea" : clinicArea, 
-                "storageTable" :sourceTable,
-                "caseid" :caseid
-            } 
-    json_data = json.dumps(data)
-    create_servicebus_event("niimatchingrules",json_data)
+    status  = get_ClincArea_status(sourceTable, caseid, clinicArea)
+    #check if process already was 
+    if status >= 4:
+        logging.info(f"event data:caseid:{caseid},clinicArea:{clinicArea},sourceTable:{sourceTable} already produced")
+    else:
+        logging.info(f"event data:caseid:{caseid},clinicArea:{clinicArea},sourceTable:{sourceTable}")
+        content_csv_path = get_content_Csv_path(sourceTable, caseid, clinicArea)
+        logging.info(f"csv content path: {content_csv_path}")
+        content_csv = get_contentcsv_from_storage(content_csv_path)
+        content_csv_valid_diagnosis = replace_diagnosis_with_valid(content_csv,caseid,clinicArea)
+        unique_content_csv = remove_duplicates(content_csv_valid_diagnosis)
+        logging.info(f"csv content: {unique_content_csv}")
+        encoded_content_csv = unique_content_csv.replace('\n', '\\n')
+        #update csv after exact duplicate removal
+        filename = f"{clinicArea}.txt"
+        contentCsvNoDuplicates_path = save_contentCsvNoDuplicates(encoded_content_csv,caseid,filename)
+        update_entity_field(sourceTable, caseid, clinicArea, "contentCsvNoDuplicates", contentCsvNoDuplicates_path,"status",2)
+        #mege csv content by diagnosis
+        merged_csv = merge_csv_rows_by_diagnosis(unique_content_csv)
+        encoded_merged_csv = merged_csv.replace('\n', '\\n')
+        contentCsvConsolidation_path = save_contentCsvConsolidation(encoded_merged_csv,caseid,filename)
+        update_entity_field(sourceTable, caseid, clinicArea, "contentCsvConsolidation", contentCsvConsolidation_path,"status",4)
+        #preparing data for service bus
+        data = { 
+                    "clinicArea" : clinicArea, 
+                    "storageTable" :sourceTable,
+                    "caseid" :caseid
+                } 
+        json_data = json.dumps(data)
+        create_servicebus_event("niimatchingrules",json_data)
